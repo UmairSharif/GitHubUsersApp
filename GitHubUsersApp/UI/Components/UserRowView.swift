@@ -60,18 +60,7 @@ struct UserRowView: View {
         }
         
         UserRowView(
-            user: GitHubUser(
-                id: 2,
-                login: "testuser",
-                avatarURL: "",
-                type: "User",
-                siteAdmin: false,
-                name: "Test User",
-                bio: "A test user",
-                followers: 100,
-                following: 50,
-                publicRepos: 25
-            )
+            user: GitHubUser.mock
         ) {
             print("Tapped testuser")
         }

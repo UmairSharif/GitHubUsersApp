@@ -8,13 +8,30 @@
 import SwiftUI
 
 struct ContentView: View {
+    @EnvironmentObject private var router: Router
+    @EnvironmentObject private var dependencyContainer: DependencyContainer
+    
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $router.path) {
             UserListView()
+                .navigationDestination(for: Route.self) { route in
+                    switch route {
+                    case .userList:
+                        UserListView()
+                    case .userDetail(let user):
+                        UserRepositoryView(user: user)
+                    case .repositoryWebView(let url):
+                        RepositoryWebView(url: url)
+                    case .apiKeyConfig:
+                        APIKeyConfigView()
+                    }
+                }
         }
     }
 }
 
 #Preview {
     ContentView()
+        .environmentObject(Router())
+        .environmentObject(DependencyContainer.shared)
 } 

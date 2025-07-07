@@ -26,5 +26,7 @@ protocol RouterProtocol: ObservableObject {
 /// Available navigation routes
 enum Route: Hashable {
     case userList
-    case userDetail
+    case userDetail(GitHubUser)
+    case repositoryWebView(URL)
+    case apiKeyConfig
 } 

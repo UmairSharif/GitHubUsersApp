@@ -89,29 +89,34 @@ struct StatView: View {
     }
 }
 
-#Preview {
-    ScrollView {
-        VStack(spacing: 20) {
-            UserProfileHeaderView(
-                user: GitHubUser.mock
-            )
-            
-            UserProfileHeaderView(
-                user: GitHubUser(
-                    id: 2,
-                    login: "testuser",
-                    avatarURL: "",
-                    type: "User",
-                    siteAdmin: false,
-                    name: "Test User",
-                    bio: "A test user for development purposes",
-                    followers: 100,
-                    following: 50,
-                    publicRepos: 25
-                )
-            )
-        }
-        .padding()
-    }
-    .background(DesignSystem.Colors.background)
-} 
+//#Preview {
+//    ScrollView {
+//        VStack(spacing: 20) {
+//            UserProfileHeaderView(
+//                user: GitHubUser(
+//                    id: 1,
+//                    login: "octocat",
+//                    avatarUrl: "https://avatars.githubusercontent.com/u/1?v=4",
+//                    type: "User",
+//                    siteAdmin: false,
+//                    name: "The Octocat",
+//                    bio: "GitHub's mascot and octocat extraordinaire! 🐙"
+//                )
+//            )
+//            
+//            UserProfileHeaderView(
+//                user: GitHubUser(
+//                    id: 2,
+//                    login: "testuser",
+//                    avatarUrl: "",
+//                    type: "User",
+//                    siteAdmin: false,
+//                    name: "Test User",
+//                    bio: "A test user for development purposes"
+//                )
+//            )
+//        }
+//        .padding()
+//    }
+//    .background(DesignSystem.Colors.background)
+//} 

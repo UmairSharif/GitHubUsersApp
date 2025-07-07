@@ -8,11 +8,11 @@
 import SwiftUI
 
 struct UserAvatarView: View {
-    let imageURL: String?
+    let imageURL: URL?
     let size: CGFloat
     let username: String
     
-    init(imageURL: String?, size: CGFloat = 40, username: String) {
+    init(imageURL: URL?, size: CGFloat = 40, username: String) {
         self.imageURL = imageURL
         self.size = size
         self.username = username
@@ -20,7 +20,7 @@ struct UserAvatarView: View {
     
     var body: some View {
         Group {
-            if let imageURLString = imageURL, let imageURL = URL(string: imageURLString) {
+            if let imageURL = imageURL {
                 AsyncImage(url: imageURL) { phase in
                     switch phase {
                     case .empty:
@@ -68,7 +68,7 @@ struct UserAvatarView: View {
 #Preview {
     VStack(spacing: 20) {
         UserAvatarView(
-            imageURL:  "https://avatars.githubusercontent.com/u/1?v=4",
+            imageURL: URL(string: "https://avatars.githubusercontent.com/u/1?v=4"),
             size: 60,
             username: "octocat"
         )

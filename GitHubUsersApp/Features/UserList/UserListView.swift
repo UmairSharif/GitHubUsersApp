@@ -8,86 +8,35 @@
 import SwiftUI
 
 struct UserListView: View {
-    @State private var searchText = ""
+    @EnvironmentObject private var dependencyContainer: DependencyContainer
+    @StateObject private var viewModel: UserListViewModel
     
-    // Static mock data for design
-    private let mockUsers = [
-        GitHubUser(
-            id: 1,
-            login: "octocat",
-            avatarURL: "https://avatars.githubusercontent.com/u/1?v=4",
-            type: "User",
-            siteAdmin: false,
-            name: "The Octocat",
-            bio: "GitHub's mascot and octocat extraordinaire! 🐙",
-            followers: 1234,
-            following: 567,
-            publicRepos: 89
-        ),
-        GitHubUser(
-            id: 2,
-            login: "johndoe",
-            avatarURL: "https://avatars.githubusercontent.com/u/2?v=4",
-            type: "User",
-            siteAdmin: false,
-            name: "John Doe",
-            bio: "Software developer passionate about open source",
-            followers: 456,
-            following: 234,
-            publicRepos: 45
-        ),
-        GitHubUser(
-            id: 3,
-            login: "janedoe",
-            avatarURL: "https://avatars.githubusercontent.com/u/3?v=4",
-            type: "User",
-            siteAdmin: false,
-            name: "Jane Doe",
-            bio: "Full-stack developer and tech enthusiast",
-            followers: 789,
-            following: 123,
-            publicRepos: 67
-        ),
-        GitHubUser(
-            id: 4,
-            login: "developer",
-            avatarURL: "https://avatars.githubusercontent.com/u/4?v=4",
-            type: "User",
-            siteAdmin: false,
-            name: "Developer",
-            bio: "Building amazing things with code",
-            followers: 321,
-            following: 89,
-            publicRepos: 23
-        ),
-        GitHubUser(
-            id: 5,
-            login: "coder",
-            avatarURL: "https://avatars.githubusercontent.com/u/5?v=4",
-            type: "User",
-            siteAdmin: false,
-            name: "Code Master",
-            bio: "Passionate about clean code and best practices",
-            followers: 654,
-            following: 432,
-            publicRepos: 78
-        )
-    ]
+    init() {
+        // This will be properly initialized by the environment
+        self._viewModel = StateObject(wrappedValue: UserListViewModel(
+            gitHubService: DependencyContainer.shared.gitHubService,
+            router: DependencyContainer.shared.router
+        ))
+    }
     
     var body: some View {
         VStack(spacing: 0) {
             SearchBarView(
-                text: $searchText,
+                text: $viewModel.searchText,
                 placeholder: "Search GitHub users..."
             ) {
-                // Static search action
-                print("Search tapped with: \(searchText)")
+                Task {
+                    await viewModel.searchUsers()
+                }
             }
             
-            // Show different states based on search text
-            if searchText.isEmpty {
+            if viewModel.isLoadingUsers && viewModel.users.isEmpty {
+                loadingView
+            } else if viewModel.hasError {
+                errorView
+            } else if viewModel.shouldShowInitialState {
                 initialStateView
-            } else if mockUsers.filter({ $0.login.localizedCaseInsensitiveContains(searchText) }).isEmpty {
+            } else if viewModel.shouldShowEmptyState {
                 emptyStateView
             } else {
                 userListView
@@ -99,7 +48,7 @@ struct UserListView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
-                    print("Settings tapped")
+                    dependencyContainer.router.navigate(to: .apiKeyConfig)
                 } label: {
                     Image(systemName: "gearshape.fill")
                         .font(.system(size: 16, weight: .medium))
@@ -107,6 +56,52 @@ struct UserListView: View {
                 .foregroundColor(DesignSystem.Colors.primary)
             }
         }
+        .task {
+            await viewModel.loadUsers(isRefresh: false)
+        }
+        .refreshable {
+            await viewModel.refreshUsers()
+        }
+    }
+    
+    private var loadingView: some View {
+        VStack(spacing: DesignSystem.Spacing.lg) {
+            ProgressView()
+                .scaleEffect(1.2)
+            
+            Text("Loading users...")
+                .font(DesignSystem.Typography.subheadline)
+                .foregroundColor(DesignSystem.Colors.githubTextSecondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    
+    private var errorView: some View {
+        VStack(spacing: DesignSystem.Spacing.lg) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 48))
+                .foregroundColor(DesignSystem.Colors.error)
+            
+            Text("Something went wrong")
+                .font(DesignSystem.Typography.title2)
+                .foregroundColor(DesignSystem.Colors.githubText)
+            
+            if let errorMessage = viewModel.errorMessage {
+                Text(errorMessage)
+                    .font(DesignSystem.Typography.body)
+                    .foregroundColor(DesignSystem.Colors.githubTextSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            
+            Button("Try Again") {
+                Task {
+                    await viewModel.loadUsers(isRefresh: false)
+                }
+            }
+            .primaryButtonStyle()
+        }
+        .padding(DesignSystem.Spacing.xl)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     private var initialStateView: some View {
@@ -150,10 +145,26 @@ struct UserListView: View {
     private var userListView: some View {
         ScrollView {
             LazyVStack(spacing: DesignSystem.Spacing.md) {
-                ForEach(mockUsers.filter { searchText.isEmpty || $0.login.localizedCaseInsensitiveContains(searchText) }) { user in
+                ForEach(viewModel.users) { user in
                     UserRowView(user: user) {
-                        print("Selected user: \(user.login)")
+                        viewModel.selectUser(user)
                     }
+                    .onAppear {
+                        Task {
+                            await viewModel.loadMoreUsersIfNeeded(currentUser: user)
+                        }
+                    }
+                }
+                
+                if viewModel.isLoadingUsers && !viewModel.users.isEmpty {
+                    HStack {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                        Text("Loading more users...")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.githubTextSecondary)
+                    }
+                    .padding(DesignSystem.Spacing.md)
                 }
             }
             .padding(DesignSystem.Spacing.md)
@@ -164,5 +175,6 @@ struct UserListView: View {
 #Preview {
     NavigationStack {
         UserListView()
+            .environmentObject(DependencyContainer.shared)
     }
 } 

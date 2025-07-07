@@ -9,87 +9,104 @@ import SwiftUI
 
 struct UserRepositoryView: View {
     let user: GitHubUser
+    @EnvironmentObject private var dependencyContainer: DependencyContainer
+    @StateObject private var viewModel: UserRepositoryViewModel
     
-    // Static mock data for design
-    private let mockRepositories = [
-        GitHubRepository(
-            id: 1,
-            name: "awesome-project",
-            description: "An awesome project with amazing features and great documentation. This repository showcases best practices in software development.",
-            language: "Swift",
-            stargazersCount: 1234,
-            htmlURL: "https://github.com/octocat/awesome-project"
-        ),
-        GitHubRepository(
-            id: 2,
-            name: "mobile-app",
-            description: "A beautiful mobile application built with modern technologies and clean architecture patterns.",
-            language: "Swift",
-            stargazersCount: 567,
-            htmlURL: "https://github.com/octocat/mobile-app"
-        ),
-        GitHubRepository(
-            id: 3,
-            name: "web-framework",
-            description: "Lightweight and fast web framework for building scalable applications.",
-            language: "JavaScript",
-            stargazersCount: 890,
-            htmlURL: "https://github.com/octocat/web-framework"
-        ),
-        GitHubRepository(
-            id: 4,
-            name: "data-science-tools",
-            description: "Collection of tools and utilities for data science and machine learning projects.",
-            language: "Python",
-            stargazersCount: 432,
-            htmlURL: "https://github.com/octocat/data-science-tools"
-        ),
-        GitHubRepository(
-            id: 5,
-            name: "api-gateway",
-            description: "High-performance API gateway with authentication, rate limiting, and monitoring capabilities.",
-            language: "Go",
-            stargazersCount: 765,
-            htmlURL: "https://github.com/octocat/api-gateway"
-        ),
-        GitHubRepository(
-            id: 6,
-            name: "design-system",
-            description: "Comprehensive design system with reusable components and design tokens.",
-            language: "TypeScript",
-            stargazersCount: 321,
-            htmlURL: "https://github.com/octocat/design-system"
-        ),
-        GitHubRepository(
-            id: 7,
-            name: "blockchain-wallet",
-            description: "Secure and user-friendly blockchain wallet with multi-currency support.",
-            language: "Rust",
-            stargazersCount: 654,
-            htmlURL: "https://github.com/octocat/blockchain-wallet"
-        ),
-        GitHubRepository(
-            id: 8,
-            name: "ai-chatbot",
-            description: "Intelligent chatbot powered by machine learning with natural language processing capabilities.",
-            language: "Python",
-            stargazersCount: 987,
-            htmlURL: "https://github.com/octocat/ai-chatbot"
-        )
-    ]
+    init(user: GitHubUser) {
+        self.user = user
+        self._viewModel = StateObject(wrappedValue: UserRepositoryViewModel(
+            user: user,
+            gitHubService: DependencyContainer.shared.gitHubService,
+            router: DependencyContainer.shared.router
+        ))
+    }
     
     var body: some View {
         ScrollView {
             VStack(spacing: DesignSystem.Spacing.lg) {
-                UserProfileHeaderView(user: user)
+                UserProfileHeaderView(user: viewModel.user)
                 
-                repositoriesView
+                if (viewModel.isLoadingUserDetails || viewModel.isLoadingRepositories) && viewModel.repositories.isEmpty {
+                    loadingView
+                } else if viewModel.hasError {
+                    errorView
+                } else if viewModel.shouldShowEmptyState {
+                    emptyStateView
+                } else {
+                    repositoriesView
+                }
             }
             .padding(DesignSystem.Spacing.md)
         }
         .background(DesignSystem.Colors.background)
-        .navigationTitle(user.login)
+        .navigationTitle(viewModel.user.login)
         .navigationBarTitleDisplayMode(.large)
+        .task {
+            await viewModel.loadUserDetails(isRefresh: false)
+            await viewModel.loadRepositories(isRefresh: false)
+        }
+        .refreshable {
+            await viewModel.refreshData()
+        }
+    }
+    
+    private var loadingView: some View {
+        VStack(spacing: DesignSystem.Spacing.lg) {
+            ProgressView()
+                .scaleEffect(1.2)
+            
+            Text("Loading repositories...")
+                .font(DesignSystem.Typography.subheadline)
+                .foregroundColor(DesignSystem.Colors.githubTextSecondary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 200)
+    }
+    
+    private var errorView: some View {
+        VStack(spacing: DesignSystem.Spacing.lg) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 48))
+                .foregroundColor(DesignSystem.Colors.error)
+            
+            Text("Failed to load repositories")
+                .font(DesignSystem.Typography.title2)
+                .foregroundColor(DesignSystem.Colors.githubText)
+            
+            if let errorMessage = viewModel.errorMessage {
+                Text(errorMessage)
+                    .font(DesignSystem.Typography.body)
+                    .foregroundColor(DesignSystem.Colors.githubTextSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            
+            Button("Try Again") {
+                Task {
+                    await viewModel.loadRepositories(isRefresh: false)
+                }
+            }
+            .primaryButtonStyle()
+        }
+        .padding(DesignSystem.Spacing.xl)
+        .frame(maxWidth: .infinity, minHeight: 200)
+    }
+    
+    private var emptyStateView: some View {
+        VStack(spacing: DesignSystem.Spacing.xl) {
+            Image(systemName: "folder")
+                .font(.system(size: 64))
+                .foregroundColor(DesignSystem.Colors.githubTextSecondary)
+            
+            Text("No repositories found")
+                .font(DesignSystem.Typography.title2)
+                .foregroundColor(DesignSystem.Colors.githubText)
+            
+            Text("This user doesn't have any public repositories yet.")
+                .font(DesignSystem.Typography.body)
+                .foregroundColor(DesignSystem.Colors.githubTextSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(DesignSystem.Spacing.xl)
+        .frame(maxWidth: .infinity, minHeight: 200)
     }
     
     private var repositoriesView: some View {
@@ -101,16 +118,32 @@ struct UserRepositoryView: View {
                 
                 Spacer()
                 
-                Text("\(mockRepositories.count) repositories")
+                Text("\(viewModel.repositoriesCount) of \(viewModel.totalRepositories)")
                     .font(DesignSystem.Typography.caption)
                     .foregroundColor(DesignSystem.Colors.githubTextSecondary)
             }
             
             LazyVStack(spacing: DesignSystem.Spacing.md) {
-                ForEach(mockRepositories) { repository in
+                ForEach(viewModel.repositories) { repository in
                     RepositoryRowView(repository: repository) {
-                        print("Selected repository: \(repository.name)")
+                        viewModel.selectRepository(repository)
                     }
+                    .onAppear {
+                        Task {
+                            await viewModel.loadMoreRepositoriesIfNeeded(currentRepository: repository)
+                        }
+                    }
+                }
+                
+                if viewModel.isLoadingRepositories && !viewModel.repositories.isEmpty {
+                    HStack {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                        Text("Loading more repositories...")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.githubTextSecondary)
+                    }
+                    .padding(DesignSystem.Spacing.md)
                 }
             }
         }
@@ -122,5 +155,6 @@ struct UserRepositoryView: View {
         UserRepositoryView(
             user: GitHubUser.mock
         )
+        .environmentObject(DependencyContainer.shared)
     }
 }
