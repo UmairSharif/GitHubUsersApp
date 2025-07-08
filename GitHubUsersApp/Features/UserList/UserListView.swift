@@ -23,12 +23,13 @@ struct UserListView: View {
         VStack(spacing: 0) {
             SearchBarView(
                 text: $viewModel.searchText,
-                placeholder: "Search GitHub users..."
-            ) {
-                Task {
-                    await viewModel.searchUsers()
+                placeholder: "Search GitHub users...",
+                onSearch: {
+                    Task {
+                        await viewModel.dismissSearchAndReload()
+                    }
                 }
-            }
+            )
             
             if viewModel.isLoadingUsers && viewModel.users.isEmpty {
                 loadingView
@@ -61,6 +62,14 @@ struct UserListView: View {
         }
         .refreshable {
             await viewModel.refreshUsers()
+        }
+        .keyboardDismiss {
+            // Reload previous list if search was active
+            if !viewModel.searchText.isEmpty {
+                Task {
+                    await viewModel.dismissSearchAndReload()
+                }
+            }
         }
     }
     

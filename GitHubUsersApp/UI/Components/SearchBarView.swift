@@ -10,7 +10,7 @@ import SwiftUI
 struct SearchBarView: View {
     @Binding var text: String
     let placeholder: String
-    let onSearch: () -> Void
+    let onSearch: (() -> Void)?
     
     @FocusState private var isFocused: Bool
     
@@ -26,7 +26,8 @@ struct SearchBarView: View {
                     .foregroundColor(DesignSystem.Colors.githubText)
                     .focused($isFocused)
                     .onSubmit {
-                        onSearch()
+                        isFocused = false
+                        onSearch?()
                     }
                 
                 if !text.isEmpty {
@@ -50,15 +51,7 @@ struct SearchBarView: View {
                     .stroke(DesignSystem.Colors.githubBorder, lineWidth: 1)
             )
             
-            if !text.isEmpty {
-                Button("Search") {
-                    onSearch()
-                    isFocused = false
-                }
-                .font(DesignSystem.Typography.headline)
-                .foregroundColor(DesignSystem.Colors.primary)
-                .buttonStyle(PlainButtonStyle())
-            }
+            // Search is now automatic with throttling, no manual search button needed
         }
         .padding(.horizontal, DesignSystem.Spacing.md)
         .padding(.vertical, DesignSystem.Spacing.sm)
@@ -69,17 +62,19 @@ struct SearchBarView: View {
     VStack(spacing: 20) {
         SearchBarView(
             text: .constant(""),
-            placeholder: "Search GitHub users..."
-        ) {
-            print("Search tapped")
-        }
+            placeholder: "Search GitHub users...",
+            onSearch: {
+                print("Search tapped")
+            }
+        )
         
         SearchBarView(
             text: .constant("octocat"),
-            placeholder: "Search GitHub users..."
-        ) {
-            print("Search tapped")
-        }
+            placeholder: "Search GitHub users...",
+            onSearch: {
+                print("Search tapped")
+            }
+        )
     }
     .padding()
     .background(DesignSystem.Colors.background)

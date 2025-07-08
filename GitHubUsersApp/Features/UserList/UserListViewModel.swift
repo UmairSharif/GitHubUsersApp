@@ -13,7 +13,11 @@ import os.log
 final class UserListViewModel: BaseViewModel {
     // MARK: - Published Properties
     @Published var users: [GitHubUser] = []
-    @Published var searchText = ""
+    @Published var searchText = "" {
+        didSet {
+            handleSearchTextChange()
+        }
+    }
     @Published var isRefreshing = false
     @Published var isLoading = false
     @Published var errorMessage: String?
@@ -28,17 +32,126 @@ final class UserListViewModel: BaseViewModel {
     
     // MARK: - Task Management
     private var currentLoadTask: Task<Void, Never>?
+    private var searchThrottleTask: Task<Void, Never>?
     
     // MARK: - Pagination
     private var currentPage = 1
     private var hasMorePages = true
     private let itemsPerPage = 20
     
+    // MARK: - Search State
+    private var previousUsers: [GitHubUser] = []
+    private var previousPage = 1
+    private var previousHasMorePages = true
+    private var isSearchMode = false
+    
     // MARK: - Initialization
     init(gitHubService: GitHubServiceProtocol, router: Router) {
         self.gitHubService = gitHubService
         self.router = router
         logger.info("UserListViewModel initialized")
+    }
+    
+    // MARK: - Private Methods
+    private func handleSearchTextChange() {
+        // Cancel any existing throttle task
+        searchThrottleTask?.cancel()
+        
+        if searchText.isEmpty {
+            // Restore previous state when search is cleared
+            restorePreviousState()
+        } else {
+            // Start throttled search
+            searchThrottleTask = Task {
+                try? await Task.sleep(nanoseconds: 0_500_000_000) // 0.5 seconds
+                
+                // Check if task was cancelled or search text changed
+                guard !Task.isCancelled else { return }
+                
+                await performSearch()
+            }
+        }
+    }
+    
+    private func restorePreviousState() {
+        logger.info("Restoring previous state - users: \(self.previousUsers.count), page: \(self.previousPage)")
+        users = previousUsers
+        currentPage = previousPage
+        hasMorePages = previousHasMorePages
+        isSearchMode = false
+        clearError()
+    }
+    
+    private func saveCurrentState() {
+        if !isSearchMode {
+            logger.info("Saving current state - users: \(self.users.count), page: \(self.currentPage)")
+            previousUsers = users
+            previousPage = currentPage
+            previousHasMorePages = hasMorePages
+        }
+    }
+    
+    private func performSearch() async {
+        // Cancel any existing load task
+        currentLoadTask?.cancel()
+        
+        // Save current state before starting search
+        saveCurrentState()
+        
+        // Create new task for searching users
+        currentLoadTask = Task {
+            guard !isLoadingUsers else { 
+                logger.info("Skipping performSearch - already loading users")
+                return 
+            }
+            
+            logger.info("Performing search with query: '\(self.searchText)'")
+            isLoadingUsers = true
+            clearError()
+            isSearchMode = true
+            
+            // Reset pagination for search
+            currentPage = 1
+            hasMorePages = true
+            users.removeAll()
+            
+            let result = await gitHubService.searchUsers(
+                query: searchText,
+                page: currentPage,
+                perPage: itemsPerPage
+            )
+            
+            // Check if task was cancelled
+            guard !Task.isCancelled else {
+                logger.info("performSearch task was cancelled")
+                isLoadingUsers = false
+                return
+            }
+            
+            switch result {
+            case .success(let response):
+                users = response.items
+                logger.info("Search completed with \(response.items.count) users")
+                
+                hasMorePages = response.items.count == itemsPerPage
+                currentPage += 1
+                
+            case .failure(let error):
+                // Don't show cancelled errors to the user
+                if case .cancelled = error {
+                    logger.info("Search request was cancelled, not showing error to user")
+                    return
+                }
+                
+                logger.error("Failed to search users: \(error.localizedDescription)")
+                showError(error.localizedDescription)
+            }
+            
+            isLoadingUsers = false
+            logger.info("performSearch completed. isLoadingUsers: \(self.isLoadingUsers), hasError: \(self.hasError)")
+        }
+        
+        await currentLoadTask?.value
     }
     
     // MARK: - Public Methods
@@ -104,12 +217,10 @@ final class UserListViewModel: BaseViewModel {
     func searchUsers() async {
         // Cancel any existing tasks
         currentLoadTask?.cancel()
+        searchThrottleTask?.cancel()
         
-        logger.info("Searching users with query: '\(self.searchText)'")
-        currentPage = 1
-        hasMorePages = true
-        users.removeAll()
-        await loadUsers(isRefresh: false)
+        logger.info("Manual search triggered with query: '\(self.searchText)'")
+        await performSearch()
     }
     
     func refreshUsers() async {
@@ -137,6 +248,12 @@ final class UserListViewModel: BaseViewModel {
     func selectUser(_ user: GitHubUser) {
         logger.info("User selected: \(user.login)")
         router.navigate(to: .userDetail(user))
+    }
+    
+    func dismissSearchAndReload() async {
+        logger.info("Dismissing search and reloading previous list")
+        searchText = ""
+        await loadUsers(isRefresh: false)
     }
     
     // MARK: - Computed Properties
