@@ -27,7 +27,7 @@ final class UserListViewModel: BaseViewModel {
     
     // MARK: - Private Properties
     private let gitHubService: GitHubServiceProtocol
-    private let router: Router
+    private let router: any RouterProtocol
     private let logger = Logger(subsystem: "com.githubusersapp.viewmodel", category: "UserListViewModel")
     
     // MARK: - Task Management
@@ -46,7 +46,7 @@ final class UserListViewModel: BaseViewModel {
     private var isSearchMode = false
     
     // MARK: - Initialization
-    init(gitHubService: GitHubServiceProtocol, router: Router) {
+    init(gitHubService: GitHubServiceProtocol, router: any RouterProtocol) {
         self.gitHubService = gitHubService
         self.router = router
         logger.info("UserListViewModel initialized")
@@ -54,18 +54,18 @@ final class UserListViewModel: BaseViewModel {
     
     // MARK: - Private Methods
     private func handleSearchTextChange() {
-        // Cancel any existing throttle task
         searchThrottleTask?.cancel()
         
         if searchText.isEmpty {
-            // Restore previous state when search is cleared
-            restorePreviousState()
+            if isSearchMode {
+                restorePreviousState()
+            } else {
+                clearError()
+            }
         } else {
-            // Start throttled search
             searchThrottleTask = Task {
                 try? await Task.sleep(nanoseconds: 0_500_000_000) // 0.5 seconds
                 
-                // Check if task was cancelled or search text changed
                 guard !Task.isCancelled else { return }
                 
                 await performSearch()
@@ -92,21 +92,16 @@ final class UserListViewModel: BaseViewModel {
     }
     
     private func performSearch() async {
-        // Cancel any existing load task
         currentLoadTask?.cancel()
+        isLoadingUsers = false
         
-        // Save current state before starting search
         saveCurrentState()
+        
+        isLoadingUsers = true
         
         // Create new task for searching users
         currentLoadTask = Task {
-            guard !isLoadingUsers else { 
-                logger.info("Skipping performSearch - already loading users")
-                return 
-            }
-            
             logger.info("Performing search with query: '\(self.searchText)'")
-            isLoadingUsers = true
             clearError()
             isSearchMode = true
             
@@ -156,18 +151,17 @@ final class UserListViewModel: BaseViewModel {
     
     // MARK: - Public Methods
     func loadUsers(isRefresh: Bool = false) async {
-        // Cancel any existing load task
+        guard !isLoadingUsers else { 
+            logger.info("Skipping loadUsers - already loading users")
+            return 
+        }
+        
+        isLoadingUsers = true
+        
         currentLoadTask?.cancel()
         
-        // Create new task for loading users
         currentLoadTask = Task {
-            guard !isLoadingUsers else { 
-                logger.info("Skipping loadUsers - already loading users")
-                return 
-            }
-            
             logger.info("Loading users - page: \(self.currentPage), searchText: '\(self.searchText)', isRefresh: \(isRefresh)")
-            isLoadingUsers = true
             clearError()
             
             let result = await gitHubService.searchUsers(
@@ -176,7 +170,6 @@ final class UserListViewModel: BaseViewModel {
                 perPage: itemsPerPage
             )
             
-            // Check if task was cancelled
             guard !Task.isCancelled else {
                 logger.info("loadUsers task was cancelled")
                 isLoadingUsers = false
@@ -215,7 +208,6 @@ final class UserListViewModel: BaseViewModel {
     }
     
     func searchUsers() async {
-        // Cancel any existing tasks
         currentLoadTask?.cancel()
         searchThrottleTask?.cancel()
         
@@ -238,8 +230,14 @@ final class UserListViewModel: BaseViewModel {
     }
     
     func loadMoreUsersIfNeeded(currentUser user: GitHubUser) async {
+        // Ensure we have enough users to check threshold
+        guard users.count > 5 else { return }
+        
+        // Ensure the user still exists in our array
+        guard let currentIndex = users.firstIndex(where: { $0.id == user.id }) else { return }
+        
         let thresholdIndex = users.index(users.endIndex, offsetBy: -5)
-        if users.firstIndex(where: { $0.id == user.id }) == thresholdIndex {
+        if currentIndex == thresholdIndex {
             logger.info("Loading more users - reached threshold for user: \(user.login)")
             await loadUsers(isRefresh: false)
         }

@@ -25,7 +25,7 @@ final class UserRepositoryViewModel: BaseViewModel {
     
     // MARK: - Private Properties
     private let gitHubService: GitHubServiceProtocol
-    private let router: Router
+    private let router: any RouterProtocol
     private let logger = Logger(subsystem: "com.githubusersapp.viewmodel", category: "UserRepositoryViewModel")
     
     // MARK: - Pagination
@@ -34,7 +34,7 @@ final class UserRepositoryViewModel: BaseViewModel {
     private let itemsPerPage = 20
     
     // MARK: - Initialization
-    init(user: GitHubUser, gitHubService: GitHubServiceProtocol, router: Router) {
+    init(user: GitHubUser, gitHubService: GitHubServiceProtocol, router: any RouterProtocol) {
         self.user = user
         self.gitHubService = gitHubService
         self.router = router
@@ -123,8 +123,18 @@ final class UserRepositoryViewModel: BaseViewModel {
     }
     
     func loadMoreRepositoriesIfNeeded(currentRepository repo: GitHubRepository) async {
-        let thresholdIndex = repositories.index(repositories.endIndex, offsetBy: -5)
-        if repositories.firstIndex(where: { $0.id == repo.id }) == thresholdIndex {
+        guard hasMorePages else { return }
+        
+        // Ensure we have enough repositories to check threshold
+        guard repositories.count > 5 else { return }
+        
+        // Ensure the repository still exists in our array
+        guard let currentIndex = repositories.firstIndex(where: { $0.id == repo.id }) else { return }
+        
+        let thresholdOffset = 5
+        let thresholdIndex = repositories.index(repositories.endIndex, offsetBy: -thresholdOffset)
+        
+        if currentIndex >= thresholdIndex {
             logger.info("Loading more repositories - reached threshold for repo: \(repo.name)")
             await loadRepositories(isRefresh: false)
         }
@@ -137,6 +147,10 @@ final class UserRepositoryViewModel: BaseViewModel {
         } else {
             logger.error("Repository URL is nil for: \(repository.name)")
         }
+    }
+    
+    func openRepository(_ repository: GitHubRepository) {
+        selectRepository(repository)
     }
     
     // MARK: - Computed Properties

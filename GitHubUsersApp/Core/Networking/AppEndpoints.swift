@@ -100,12 +100,10 @@ final class GitHubAPIKeyManager {
     private init() {}
     
     var apiKey: String? {
-        // Try to load from environment variable first (for production)
         if let envKey = ProcessInfo.processInfo.environment["GITHUB_API_KEY"] {
             return envKey
         }
         
-        // Try to load from UserDefaults (for development)
         if let savedKey = UserDefaults.standard.string(forKey: "GitHubAPIKey") {
             return savedKey
         }

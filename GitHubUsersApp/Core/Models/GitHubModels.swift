@@ -35,7 +35,12 @@ struct GitHubUser: Codable, Identifiable, Hashable {
     }
     
     var avatarURL: URL? {
-        return URL(string: avatarUrl)
+        guard let url = URL(string: avatarUrl),
+              let scheme = url.scheme,
+              (scheme == "http" || scheme == "https") else {
+            return nil
+        }
+        return url
     }
     
     init(
@@ -109,12 +114,15 @@ struct GitHubRepository: Codable, Identifiable, Hashable {
     let updatedAt: String
     let pushedAt: String?
     
-    // Owner information
     let owner: GitHubUser
     
-    // Computed properties
     var repositoryURL: URL? {
-        return URL(string: htmlUrl)
+        guard let url = URL(string: htmlUrl),
+              let scheme = url.scheme,
+              (scheme == "http" || scheme == "https") else {
+            return nil
+        }
+        return url
     }
     
     var displayLanguage: String {
