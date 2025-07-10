@@ -16,6 +16,7 @@ final class UserRepositoryViewModel: BaseViewModel {
     // MARK: - Published Properties
     @Published var user: GitHubUser
     @Published var repositories: [GitHubRepository] = []
+    @Published var searchQuery: String = ""
     @Published var isRefreshing = false
     @Published var isLoading = false
     @Published var errorMessage: String?
@@ -195,11 +196,11 @@ final class UserRepositoryViewModel: BaseViewModel {
     }
     
     var shouldShowEmptyState: Bool {
-        !isLoadingUserDetails && !isLoadingRepositories && !hasError && repositories.isEmpty
+        !isLoadingUserDetails && !isLoadingRepositories && !hasError && filteredRepositories.isEmpty
     }
     
     var repositoriesCount: Int {
-        repositories.count
+        filteredRepositories.count
     }
     
     var totalRepositories: Int {
@@ -216,6 +217,56 @@ final class UserRepositoryViewModel: BaseViewModel {
     
     var currentPage: Int {
         return self._currentPage
+    }
+    
+    // MARK: - Search Properties
+    var filteredRepositories: [GitHubRepository] {
+        guard !searchQuery.isEmpty else {
+            return repositories
+        }
+        
+        let query = searchQuery.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        return repositories.filter { repository in
+            
+            if repository.name.lowercased().contains(query) {
+                return true
+            }
+            
+            if let description = repository.description?.lowercased(),
+               description.contains(query) {
+                return true
+            }
+            
+            if let language = repository.language?.lowercased(),
+               language.contains(query) {
+                return true
+            }
+            
+            if repository.fullName.lowercased().contains(query) {
+                return true
+            }
+            
+            return false
+        }
+    }
+    
+    var isSearching: Bool {
+        !searchQuery.isEmpty
+    }
+    
+    var searchResultsCount: Int {
+        filteredRepositories.count
+    }
+    
+    // MARK: - Search Methods
+    func updateSearchQuery(_ query: String) {
+        logger.info("Updating search query to: '\(query)'")
+        searchQuery = query
+    }
+    
+    func clearSearch() {
+        logger.info("Clearing search query")
+        searchQuery = ""
     }
     
     // MARK: - Favorites Methods

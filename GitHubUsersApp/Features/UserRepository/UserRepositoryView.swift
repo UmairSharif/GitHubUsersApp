@@ -99,18 +99,27 @@ struct UserRepositoryView: View {
     
     private var emptyStateView: some View {
         VStack(spacing: DesignSystem.Spacing.xl) {
-            Image(systemName: "folder")
+            Image(systemName: viewModel.isSearching ? "magnifyingglass" : "folder")
                 .font(.system(size: 64))
                 .foregroundColor(DesignSystem.Colors.githubTextSecondary)
             
-            Text("No repositories found")
+            Text(viewModel.isSearching ? "No search results" : "No repositories found")
                 .font(DesignSystem.Typography.title2)
                 .foregroundColor(DesignSystem.Colors.githubText)
             
-            Text("This user doesn't have any public repositories yet.")
+            Text(viewModel.isSearching ? 
+                 "No repositories match your search query '\(viewModel.searchQuery)'" :
+                 "This user doesn't have any public repositories yet.")
                 .font(DesignSystem.Typography.body)
                 .foregroundColor(DesignSystem.Colors.githubTextSecondary)
                 .multilineTextAlignment(.center)
+            
+            if viewModel.isSearching {
+                Button("Clear Search") {
+                    viewModel.clearSearch()
+                }
+                .primaryButtonStyle()
+            }
         }
         .padding(DesignSystem.Spacing.xl)
         .frame(maxWidth: .infinity, minHeight: 200)
@@ -125,32 +134,42 @@ struct UserRepositoryView: View {
                 
                 Spacer()
                 
-                Text("\(viewModel.repositoriesCount) of \(viewModel.totalRepositories)")
-                    .font(DesignSystem.Typography.caption)
-                    .foregroundColor(DesignSystem.Colors.githubTextSecondary)
+                if viewModel.isSearching {
+                    Text("\(viewModel.searchResultsCount) of \(viewModel.repositories.count)")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.githubTextSecondary)
+                } else {
+                    Text("\(viewModel.repositoriesCount) of \(viewModel.totalRepositories)")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.githubTextSecondary)
+                }
             }
             
-            // Debug info
-            if viewModel.repositoriesCount > 0 {
-                Text("Debug: hasMorePages=\(viewModel.hasMorePages), isLoadingRepositories=\(viewModel.isLoadingRepositories), currentPage=\(viewModel.currentPage)")
-                    .font(DesignSystem.Typography.caption)
-                    .foregroundColor(DesignSystem.Colors.githubTextSecondary)
-            }
+            // Search Bar
+            SearchBarView(
+                text: $viewModel.searchQuery,
+                placeholder: "Search repositories...",
+                onSearch: nil
+            )
+            
+
             
             LazyVStack(spacing: DesignSystem.Spacing.md) {
-                ForEach(Array(viewModel.repositories.enumerated()), id: \.element.id) { index, repository in
+                ForEach(Array(viewModel.filteredRepositories.enumerated()), id: \.element.id) { index, repository in
                     RepositoryRowView(repository: repository) {
                         viewModel.selectRepository(repository)
                     }
                     .onAppear {
                         Task {
                             logger.info("Repository appeared: \(repository.name) at index \(index)")
-                            await viewModel.loadMoreRepositoriesIfNeeded(currentRepository: repository)
+                            if !viewModel.isSearching {
+                                await viewModel.loadMoreRepositoriesIfNeeded(currentRepository: repository)
+                            }
                         }
                     }
                 }
                 
-                if viewModel.isLoadingMore {
+                if viewModel.isLoadingMore && !viewModel.isSearching {
                     HStack {
                         ProgressView()
                             .scaleEffect(0.8)
