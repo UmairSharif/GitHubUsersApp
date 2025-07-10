@@ -24,6 +24,8 @@ struct ContentView: View {
                         RepositoryWebView(url: url)
                     case .apiKeyConfig:
                         APIKeyConfigView()
+                    case .favorites:
+                        FavoritesView()
                     }
                 }
         }

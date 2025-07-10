@@ -29,4 +29,5 @@ enum Route: Hashable {
     case userDetail(GitHubUser)
     case repositoryWebView(URL)
     case apiKeyConfig
+    case favorites
 } 

@@ -15,7 +15,8 @@ struct UserListView: View {
         // This will be properly initialized by the environment
         self._viewModel = StateObject(wrappedValue: UserListViewModel(
             gitHubService: DependencyContainer.shared.gitHubService,
-            router: DependencyContainer.shared.router
+            router: DependencyContainer.shared.router,
+            favoritesService: DependencyContainer.shared.favoritesService
         ))
     }
     
@@ -47,6 +48,16 @@ struct UserListView: View {
         .navigationTitle("GitHub Users")
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    dependencyContainer.router.navigate(to: .favorites)
+                } label: {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 16, weight: .medium))
+                }
+                .foregroundColor(DesignSystem.Colors.error)
+            }
+            
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
                     dependencyContainer.router.navigate(to: .apiKeyConfig)
@@ -155,9 +166,12 @@ struct UserListView: View {
         ScrollView {
             LazyVStack(spacing: DesignSystem.Spacing.md) {
                 ForEach(viewModel.users) { user in
-                    UserRowView(user: user) {
-                        viewModel.selectUser(user)
-                    }
+                    UserRowView(
+                        user: user,
+                        onTap: { viewModel.selectUser(user) },
+                        isFavorite: viewModel.isFavorite(user),
+                        onToggleFavorite: { viewModel.toggleFavorite(user) }
+                    )
                     .onAppear {
                         Task {
                             await viewModel.loadMoreUsersIfNeeded(currentUser: user)

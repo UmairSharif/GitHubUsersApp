@@ -10,6 +10,8 @@ import SwiftUI
 struct UserRowView: View {
     let user: GitHubUser
     let onTap: () -> Void
+    let isFavorite: Bool
+    let onToggleFavorite: () -> Void
     
     var body: some View {
         Button(action: onTap) {
@@ -36,6 +38,12 @@ struct UserRowView: View {
                 
                 Spacer()
                 
+                BookmarkButton(
+                    user: user,
+                    isFavorite: isFavorite,
+                    onToggle: onToggleFavorite
+                )
+                
                 Image(systemName: "chevron.right")
                     .font(.caption)
                     .foregroundColor(DesignSystem.Colors.githubTextSecondary)
@@ -54,16 +62,18 @@ struct UserRowView: View {
 #Preview {
     VStack(spacing: 16) {
         UserRowView(
-            user: GitHubUser.mock
-        ) {
-            print("Tapped octocat")
-        }
+            user: GitHubUser.mock,
+            onTap: { print("Tapped octocat") },
+            isFavorite: false,
+            onToggleFavorite: { print("Toggle favorite") }
+        )
         
         UserRowView(
-            user: GitHubUser.mock
-        ) {
-            print("Tapped testuser")
-        }
+            user: GitHubUser.mock,
+            onTap: { print("Tapped testuser") },
+            isFavorite: true,
+            onToggleFavorite: { print("Toggle favorite") }
+        )
     }
     .padding()
     .background(DesignSystem.Colors.background)

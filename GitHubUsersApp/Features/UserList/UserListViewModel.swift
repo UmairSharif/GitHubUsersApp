@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import Combine
 import os.log
 
 @MainActor
@@ -28,11 +29,15 @@ final class UserListViewModel: BaseViewModel {
     // MARK: - Private Properties
     private let gitHubService: GitHubServiceProtocol
     private let router: any RouterProtocol
+    private let favoritesService: FavoritesServiceProtocol
     private let logger = Logger(subsystem: "com.githubusersapp.viewmodel", category: "UserListViewModel")
     
     // MARK: - Task Management
     private var currentLoadTask: Task<Void, Never>?
     private var searchThrottleTask: Task<Void, Never>?
+    
+    // MARK: - Combine
+    private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Pagination
     private var currentPage = 1
@@ -46,9 +51,17 @@ final class UserListViewModel: BaseViewModel {
     private var isSearchMode = false
     
     // MARK: - Initialization
-    init(gitHubService: GitHubServiceProtocol, router: any RouterProtocol) {
+    init(gitHubService: GitHubServiceProtocol, router: any RouterProtocol, favoritesService: FavoritesServiceProtocol) {
         self.gitHubService = gitHubService
         self.router = router
+        self.favoritesService = favoritesService
+        
+        favoritesService.favoritesPublisher
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+        
         logger.info("UserListViewModel initialized")
     }
     
@@ -252,6 +265,16 @@ final class UserListViewModel: BaseViewModel {
         logger.info("Dismissing search and reloading previous list")
         searchText = ""
         await loadUsers(isRefresh: false)
+    }
+    
+    // MARK: - Favorites Methods
+    func isFavorite(_ user: GitHubUser) -> Bool {
+        return favoritesService.isFavorite(user)
+    }
+    
+    func toggleFavorite(_ user: GitHubUser) {
+        logger.info("Toggling favorite for user: \(user.login)")
+        favoritesService.toggleFavorite(user)
     }
     
     // MARK: - Computed Properties

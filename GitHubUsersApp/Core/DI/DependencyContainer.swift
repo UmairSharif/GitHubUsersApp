@@ -19,6 +19,10 @@ final class DependencyContainer: ObservableObject {
         return Router()
     }()
     
+    lazy var favoritesService: FavoritesServiceProtocol = {
+        return FavoritesService()
+    }()
+    
     // MARK: - Singleton
     static let shared = DependencyContainer()
     

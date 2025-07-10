@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import Combine
 import os.log
 
 @MainActor
@@ -26,7 +27,11 @@ final class UserRepositoryViewModel: BaseViewModel {
     // MARK: - Private Properties
     private let gitHubService: GitHubServiceProtocol
     private let router: any RouterProtocol
+    private let favoritesService: FavoritesServiceProtocol
     private let logger = Logger(subsystem: "com.githubusersapp.viewmodel", category: "UserRepositoryViewModel")
+    
+    // MARK: - Combine
+    private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Pagination
     private var _currentPage = 1
@@ -34,10 +39,18 @@ final class UserRepositoryViewModel: BaseViewModel {
     private let itemsPerPage = 20
     
     // MARK: - Initialization
-    init(user: GitHubUser, gitHubService: GitHubServiceProtocol, router: any RouterProtocol) {
+    init(user: GitHubUser, gitHubService: GitHubServiceProtocol, router: any RouterProtocol, favoritesService: FavoritesServiceProtocol) {
         self.user = user
         self.gitHubService = gitHubService
         self.router = router
+        self.favoritesService = favoritesService
+        
+        favoritesService.favoritesPublisher
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+        
         logger.info("UserRepositoryViewModel initialized for user: \(user.login)")
     }
     
@@ -203,5 +216,15 @@ final class UserRepositoryViewModel: BaseViewModel {
     
     var currentPage: Int {
         return self._currentPage
+    }
+    
+    // MARK: - Favorites Methods
+    func isFavorite() -> Bool {
+        return favoritesService.isFavorite(self.user)
+    }
+    
+    func toggleFavorite() {
+        logger.info("Toggling favorite for user: \(self.user.login)")
+        favoritesService.toggleFavorite(self.user)
     }
 } 

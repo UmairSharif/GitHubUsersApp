@@ -19,14 +19,19 @@ struct UserRepositoryView: View {
         self._viewModel = StateObject(wrappedValue: UserRepositoryViewModel(
             user: user,
             gitHubService: DependencyContainer.shared.gitHubService,
-            router: DependencyContainer.shared.router
+            router: DependencyContainer.shared.router,
+            favoritesService: DependencyContainer.shared.favoritesService
         ))
     }
     
     var body: some View {
         ScrollView {
             VStack(spacing: DesignSystem.Spacing.lg) {
-                UserProfileHeaderView(user: viewModel.user)
+                UserProfileHeaderView(
+                    user: viewModel.user,
+                    isFavorite: viewModel.isFavorite(),
+                    onToggleFavorite: { viewModel.toggleFavorite() }
+                )
                 
                 if (viewModel.isLoadingUserDetails || viewModel.isLoadingRepositories) && viewModel.repositories.isEmpty {
                     loadingView

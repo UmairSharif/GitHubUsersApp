@@ -9,6 +9,8 @@ import SwiftUI
 
 struct UserProfileHeaderView: View {
     let user: GitHubUser
+    let isFavorite: Bool
+    let onToggleFavorite: () -> Void
     
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
@@ -19,14 +21,28 @@ struct UserProfileHeaderView: View {
             )
             
             VStack(spacing: DesignSystem.Spacing.sm) {
-                Text(user.displayName)
-                    .font(DesignSystem.Typography.title1)
-                    .foregroundColor(DesignSystem.Colors.githubText)
-                    .multilineTextAlignment(.center)
-                
-                Text("@\(user.login)")
-                    .font(DesignSystem.Typography.subheadline)
-                    .foregroundColor(DesignSystem.Colors.githubTextSecondary)
+                HStack {
+                    Spacer()
+                    
+                    VStack(spacing: DesignSystem.Spacing.xs) {
+                        Text(user.displayName)
+                            .font(DesignSystem.Typography.title1)
+                            .foregroundColor(DesignSystem.Colors.githubText)
+                            .multilineTextAlignment(.center)
+                        
+                        Text("@\(user.login)")
+                            .font(DesignSystem.Typography.subheadline)
+                            .foregroundColor(DesignSystem.Colors.githubTextSecondary)
+                    }
+                    
+                    Spacer()
+                    
+                    BookmarkButton(
+                        user: user,
+                        isFavorite: isFavorite,
+                        onToggle: onToggleFavorite
+                    )
+                }
                 
                 if let bio = user.bio, !bio.isEmpty {
                     Text(bio)
