@@ -325,6 +325,38 @@ struct UserRepositoryViewModelTests {
         #expect(mockService.callCount == 1) // Should not make additional calls
     }
     
+    @Test func testPaginationThresholdLogic() async throws {
+        let mockService = MockGitHubService()
+        let mockRouter = MockRouter()
+        
+        // Create view model first
+        let viewModel = createViewModel(user: testUser, mockService: mockService, mockRouter: mockRouter)
+        
+        // Setup first page with 20 repositories (full page)
+        let firstPageRepos = MockGitHubService.createMockRepositories(count: 20, forUser: "testuser")
+        mockService.mockUserNonForkedRepositories(username: "testuser", page: 1, perPage: 20, response: .success(firstPageRepos))
+        
+        // Load first page
+        await viewModel.loadRepositories()
+        #expect(viewModel.repositories.count == 20)
+        #expect(viewModel.hasMorePages == true) // Should have more pages since we got 20 items
+        
+        // Test threshold logic - repository at index 15 should trigger pagination
+        // (20 - 5 = 15, so index 15 should be at threshold)
+        let repoAtThreshold = firstPageRepos[15]
+        await viewModel.loadMoreRepositoriesIfNeeded(currentRepository: repoAtThreshold)
+        
+        // Should have made a second API call
+        #expect(mockService.callCount == 2)
+        
+        // Test that repository at index 10 should NOT trigger pagination
+        let repoNotAtThreshold = firstPageRepos[10]
+        await viewModel.loadMoreRepositoriesIfNeeded(currentRepository: repoNotAtThreshold)
+        
+        // Should still have only 2 calls (no additional call)
+        #expect(mockService.callCount == 2)
+    }
+    
 
     
     // MARK: - Navigation Tests

@@ -29,8 +29,8 @@ final class UserRepositoryViewModel: BaseViewModel {
     private let logger = Logger(subsystem: "com.githubusersapp.viewmodel", category: "UserRepositoryViewModel")
     
     // MARK: - Pagination
-    private var currentPage = 1
-    private var hasMorePages = true
+    private var _currentPage = 1
+    private var _hasMorePages = true
     private let itemsPerPage = 20
     
     // MARK: - Initialization
@@ -72,28 +72,41 @@ final class UserRepositoryViewModel: BaseViewModel {
             return 
         }
         
-        logger.info("Loading repositories for user: \(self.user.login), page: \(self.currentPage), isRefresh: \(isRefresh)")
+        // Reset pagination state if this is a refresh
+        if isRefresh {
+            _currentPage = 1
+            _hasMorePages = true
+            repositories.removeAll()
+        }
+        
+        logger.info("Loading repositories for user: \(self.user.login), page: \(self._currentPage), isRefresh: \(isRefresh)")
         isLoadingRepositories = true
         clearError()
         
         let result = await gitHubService.getUserNonForkedRepositories(
             username: user.login,
-            page: currentPage,
+            page: _currentPage,
             perPage: itemsPerPage
         )
         
         switch result {
         case .success(let repos):
-            if currentPage == 1 {
+            if _currentPage == 1 {
                 repositories = repos
                 logger.info("Loaded first page with \(repos.count) repositories")
             } else {
                 repositories.append(contentsOf: repos)
-                logger.info("Appended page \(self.currentPage) with \(repos.count) repositories. Total: \(self.repositories.count)")
+                logger.info("Appended page \(self._currentPage) with \(repos.count) repositories. Total: \(self.repositories.count)")
             }
             
-            hasMorePages = repos.count == itemsPerPage
-            currentPage += 1
+            // Update pagination state - continue loading if:
+            // 1. We got results (repos.count > 0)
+            // 2. We haven't reached the total repository count yet (safety check)
+            let totalRepos = user.publicRepos ?? 0
+            _hasMorePages = repos.count > 0 && repositories.count < totalRepos
+            
+            logger.info("Pagination state - repos.count: \(repos.count), totalLoaded: \(self.repositories.count), totalRepos: \(totalRepos), hasMorePages: \(self._hasMorePages)")
+            _currentPage += 1
             
         case .failure(let error):
             logger.error("Failed to load repositories: \(error.localizedDescription)")
@@ -111,9 +124,6 @@ final class UserRepositoryViewModel: BaseViewModel {
         
         logger.info("Refreshing data for user: \(self.user.login)")
         isRefreshing = true
-        currentPage = 1
-        hasMorePages = true
-        repositories.removeAll()
         
         await loadUserDetails(isRefresh: true)
         await loadRepositories(isRefresh: true)
@@ -123,20 +133,33 @@ final class UserRepositoryViewModel: BaseViewModel {
     }
     
     func loadMoreRepositoriesIfNeeded(currentRepository repo: GitHubRepository) async {
-        guard hasMorePages else { return }
+        guard _hasMorePages && !isLoadingRepositories else { 
+            logger.info("Skipping loadMoreRepositoriesIfNeeded - hasMorePages: \(self._hasMorePages), isLoadingRepositories: \(self.isLoadingRepositories)")
+            return
+        }
         
         // Ensure we have enough repositories to check threshold
-        guard repositories.count > 5 else { return }
+        guard repositories.count > 5 else { 
+            logger.info("Skipping loadMoreRepositoriesIfNeeded - not enough repositories (\(self.repositories.count))")
+            return
+        }
         
         // Ensure the repository still exists in our array
-        guard let currentIndex = repositories.firstIndex(where: { $0.id == repo.id }) else { return }
+        guard let currentIndex = repositories.firstIndex(where: { $0.id == repo.id }) else { 
+            logger.info("Skipping loadMoreRepositoriesIfNeeded - repository not found in array")
+            return 
+        }
         
         let thresholdOffset = 5
         let thresholdIndex = repositories.index(repositories.endIndex, offsetBy: -thresholdOffset)
         
+        logger.info("Checking pagination threshold - currentIndex: \(currentIndex), thresholdIndex: \(thresholdIndex), totalRepos: \(self.repositories.count), hasMorePages: \(self._hasMorePages)")
+        
         if currentIndex >= thresholdIndex {
-            logger.info("Loading more repositories - reached threshold for repo: \(repo.name)")
+            logger.info("Loading more repositories - reached threshold for repo: \(repo.name) at index \(currentIndex)")
             await loadRepositories(isRefresh: false)
+        } else {
+            logger.info("Not yet at threshold - currentIndex: \(currentIndex), thresholdIndex: \(thresholdIndex)")
         }
     }
     
@@ -168,5 +191,17 @@ final class UserRepositoryViewModel: BaseViewModel {
     
     var totalRepositories: Int {
         user.publicRepos ?? 0
+    }
+    
+    var isLoadingMore: Bool {
+        isLoadingRepositories && !repositories.isEmpty
+    }
+    
+    var hasMorePages: Bool {
+        return self._hasMorePages
+    }
+    
+    var currentPage: Int {
+        return self._currentPage
     }
 } 

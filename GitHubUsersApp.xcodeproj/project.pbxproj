@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		80DC73D02E2062B900D9FB55 /* GitHubUsersApp.xctestplan in Resources */ = {isa = PBXBuildFile; fileRef = 80DC73CF2E2062B900D9FB55 /* GitHubUsersApp.xctestplan */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		805168BD2E1990CD0039C058 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,6 +31,7 @@
 		805168AA2E1990CA0039C058 /* GitHubUsersApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GitHubUsersApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		805168BC2E1990CD0039C058 /* GitHubUsersAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GitHubUsersAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		805168C62E1990CD0039C058 /* GitHubUsersAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GitHubUsersAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		80DC73CF2E2062B900D9FB55 /* GitHubUsersApp.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = GitHubUsersApp.xctestplan; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -75,6 +80,7 @@
 		805168A12E1990CA0039C058 = {
 			isa = PBXGroup;
 			children = (
+				80DC73CF2E2062B900D9FB55 /* GitHubUsersApp.xctestplan */,
 				805168AC2E1990CA0039C058 /* GitHubUsersApp */,
 				805168BF2E1990CD0039C058 /* GitHubUsersAppTests */,
 				805168C92E1990CD0039C058 /* GitHubUsersAppUITests */,
@@ -212,6 +218,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				80DC73D02E2062B900D9FB55 /* GitHubUsersApp.xctestplan in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

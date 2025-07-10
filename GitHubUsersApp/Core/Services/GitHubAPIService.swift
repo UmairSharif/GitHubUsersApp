@@ -80,11 +80,9 @@ struct GitHubService: HTTPClient, GitHubServiceProtocol {
         let result = await sendRequest(endpoint: endpoint, responseModel: [GitHubRepository].self)
         
         switch result {
-        case .success(let allRepos):
-            // Filter out forked repositories (double check in case API doesn't filter properly)
-            let nonForkedRepos = allRepos.filter { !$0.fork }
-            logger.info("Non-forked repositories fetched successfully for '\(username)'. Found \(nonForkedRepos.count) non-forked repositories out of \(allRepos.count) total")
-            return .success(nonForkedRepos)
+        case .success(let repositories):
+            logger.info("Non-forked repositories fetched successfully for '\(username)'. Found \(repositories.count) repositories")
+            return .success(repositories)
         case .failure(let error):
             logger.error("Failed to fetch non-forked repositories: \(error.localizedDescription)")
             return .failure(error)

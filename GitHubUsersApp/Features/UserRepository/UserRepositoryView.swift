@@ -6,11 +6,13 @@
 //
 
 import SwiftUI
+import os.log
 
 struct UserRepositoryView: View {
     let user: GitHubUser
     @EnvironmentObject private var dependencyContainer: DependencyContainer
     @StateObject private var viewModel: UserRepositoryViewModel
+    private let logger = Logger(subsystem: "com.githubusersapp.view", category: "UserRepositoryView")
     
     init(user: GitHubUser) {
         self.user = user
@@ -123,19 +125,27 @@ struct UserRepositoryView: View {
                     .foregroundColor(DesignSystem.Colors.githubTextSecondary)
             }
             
+            // Debug info
+            if viewModel.repositoriesCount > 0 {
+                Text("Debug: hasMorePages=\(viewModel.hasMorePages), isLoadingRepositories=\(viewModel.isLoadingRepositories), currentPage=\(viewModel.currentPage)")
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundColor(DesignSystem.Colors.githubTextSecondary)
+            }
+            
             LazyVStack(spacing: DesignSystem.Spacing.md) {
-                ForEach(viewModel.repositories) { repository in
+                ForEach(Array(viewModel.repositories.enumerated()), id: \.element.id) { index, repository in
                     RepositoryRowView(repository: repository) {
                         viewModel.selectRepository(repository)
                     }
                     .onAppear {
                         Task {
+                            logger.info("Repository appeared: \(repository.name) at index \(index)")
                             await viewModel.loadMoreRepositoriesIfNeeded(currentRepository: repository)
                         }
                     }
                 }
                 
-                if viewModel.isLoadingRepositories && !viewModel.repositories.isEmpty {
+                if viewModel.isLoadingMore {
                     HStack {
                         ProgressView()
                             .scaleEffect(0.8)
